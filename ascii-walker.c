@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
-    #include <ncurses.h>
+#include <ncurses.h>
 
 static int n_cols;
 static int n_rows;
@@ -16,6 +16,7 @@ void sig_handler(int signo){
     if (signo == SIGINT){
         char* white     = "\e[97m";
         printf("%sCleaning up ...\n", white);
+        endwin();
         exit(1);
     }
 }
@@ -35,45 +36,45 @@ int print_map(char **grid, int x, int y){
 
     int iter = 0;
 
+    char poop[2];
 
 
     for(i = 0; i < n_rows; ++i){
 
         for(j = 0; j < n_cols; ++j){
 
-            if( i == y && j == x)
+            /*if( i == y && j == x)
             {
                 temp_char = grid[i][j];
                 grid[i][j] = '@';
-            }
+            }*/
 
-            if(grid[i][j] == '@'){
-                iter += sprintf(buf+iter, "%s%c%s", white, grid[i][j], black );
+            /*if(grid[i][j] == '@'){
+                //iter += sprintf(buf+iter, "%c", grid[i][j] );
+                mvprintw(i,j, "@")
             }else if(grid[i][j] == '.'){
-                iter += sprintf(buf+iter, "%s%c%s", green, grid[i][j], black );
+                //iter += sprintf(buf+iter, "%c", grid[i][j] );
             }else if(grid[i][j] == '*'){
-                iter += sprintf(buf+iter, "%s%c%s", magenta, grid[i][j], black );
+                iter += sprintf(buf+iter, "%c", grid[i][j] );
             }else if(grid[i][j] == '%'){
-                iter += sprintf(buf+iter, "%s%c%s", cyan, grid[i][j], black );
+                iter += sprintf(buf+iter, "%c", grid[i][j] );
             }else if(grid[i][j] == '&'){
-                iter += sprintf(buf+iter, "%s%c%s", red, grid[i][j], black );
+                iter += sprintf(buf+iter, "%c", grid[i][j] );
             }else{
                 iter += sprintf(buf+iter, "%c", grid[i][j]);
-            }
+            }*/
+            poop[0] = grid[i][j];
+            poop[1] = '\0';
+            mvprintw(i,j, poop);
         }
 
-        iter += sprintf(buf+iter, "\n");
+//        iter += sprintf(buf+iter, "\n");
     }
     
-    //printf("%s", buf); //%s\n
-    fprintf(stderr, "%s", buf);
-    free(buf);
-
-    grid[y][x] = temp_char;
-
-    //printf("\033[%i;%iH%s%c%s", y, x, white, '@', green); Sorta works but like the guy doesn't show up untill dah end
-    //printf("\033[%i;%iH%s%c%s\033[0;0H", y, x, white, '@', black);  
-
+    mvprintw(y,x,"@");
+    
+    //redrawwin(stdscr);
+    refresh();
 
     return 1;
 }
@@ -85,13 +86,12 @@ int main(int argc, char **argv){
     int j;  //the bottom bitch
     int k;
     int chances[8];
-    char current_pos = ' ';
     char tile = ' ';
     char player = '@';
-    char path = '.';
-    char second_visit = '*';
-    char third_visit = '%';
-    char fourth_visit = '&';
+    char path = '#';
+    char second_visit = '?';
+    char third_visit = '&';
+    char fourth_visit = '*';
     srand(time(NULL));              //seed rng
     struct winsize w;               //get tty size
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -106,13 +106,15 @@ int main(int argc, char **argv){
     int temp;
     int sleep_time = 40000;
 
+    initscr();          /* Start curses mode          */
+    noecho(); // Don't echo any keypresses
+    curs_set(FALSE); // Don't display a cursor
 
     // LAZY ARGS
     if(argc > 1)
     {
         sleep_time = atoi(argv[1]);
     }
-   
 
 
     // BUILD GRID

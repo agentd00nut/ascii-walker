@@ -5,8 +5,13 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
+    #include <ncurses.h>
+
 static int n_cols;
 static int n_rows;
+
+
 void sig_handler(int signo){
     if (signo == SIGINT){
         char* white     = "\e[97m";
@@ -14,6 +19,7 @@ void sig_handler(int signo){
         exit(1);
     }
 }
+
 int print_map(char **grid, int x, int y){
     //every pimp needs a top and bottom bitch
     int i;
@@ -27,8 +33,9 @@ int print_map(char **grid, int x, int y){
     char *buf = (char*)malloc(sizeof(char)*(n_cols*n_rows*13));
     char temp_char = ' ';
 
-
     int iter = 0;
+
+
 
     for(i = 0; i < n_rows; ++i){
 
@@ -42,7 +49,7 @@ int print_map(char **grid, int x, int y){
 
             if(grid[i][j] == '@'){
                 iter += sprintf(buf+iter, "%s%c%s", white, grid[i][j], black );
-            }else if(grid[i][j] == '#'){
+            }else if(grid[i][j] == '.'){
                 iter += sprintf(buf+iter, "%s%c%s", green, grid[i][j], black );
             }else if(grid[i][j] == '*'){
                 iter += sprintf(buf+iter, "%s%c%s", magenta, grid[i][j], black );
@@ -58,7 +65,8 @@ int print_map(char **grid, int x, int y){
         iter += sprintf(buf+iter, "\n");
     }
     
-    printf("%s", buf); //%s\n
+    //printf("%s", buf); //%s\n
+    fprintf(stderr, "%s", buf);
     free(buf);
 
     grid[y][x] = temp_char;
@@ -69,6 +77,9 @@ int print_map(char **grid, int x, int y){
 
     return 1;
 }
+
+
+
 int main(int argc, char **argv){
     int i;  //the all around iterating bitch
     int j;  //the bottom bitch
@@ -77,14 +88,14 @@ int main(int argc, char **argv){
     char current_pos = ' ';
     char tile = ' ';
     char player = '@';
-    char path = '#';
+    char path = '.';
     char second_visit = '*';
     char third_visit = '%';
     char fourth_visit = '&';
     srand(time(NULL));              //seed rng
     struct winsize w;               //get tty size
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    n_rows = w.ws_row;
+    n_rows = w.ws_row-2;
     n_cols = w.ws_col;
     int x = rand()%n_cols;    //initial point
     int y = rand()%n_rows;
@@ -93,7 +104,18 @@ int main(int argc, char **argv){
     int direction;
     int total;
     int temp;
-    //my grid
+    int sleep_time = 40000;
+
+
+    // LAZY ARGS
+    if(argc > 1)
+    {
+        sleep_time = atoi(argv[1]);
+    }
+   
+
+
+    // BUILD GRID
     char **grid = (char**)malloc(sizeof(char*)*n_rows);
     for(i = 0; i < n_rows; ++i){
         grid[i] = (char*)malloc(sizeof(char)*n_cols);
@@ -105,7 +127,9 @@ int main(int argc, char **argv){
         //pass
     }
     
-    //grid[y][x] = player;
+
+
+
 
     while(print_map(grid, x, y)){
         total = 96;
@@ -153,7 +177,7 @@ int main(int argc, char **argv){
         if( grid[y][x] == path ){ grid[y][x] = second_visit; } 
         else if(   grid[y][x] == second_visit){ grid[y][x] = third_visit; }
         else if(   grid[y][x] == third_visit){  grid[y][x] = fourth_visit; }
-        else if(   grid[y][x] == fourth_visit){ grid[y][x] = fourth_visit; }
+        else if(   grid[y][x] == fourth_visit){ grid[y][x] = ' '; }
         else{ grid[y][x] = path; }
 
         
@@ -161,7 +185,7 @@ int main(int argc, char **argv){
         y = vertical;
         //usleep(65000); NICE
         //usleep(50000);
-        usleep(40000);
+        usleep(sleep_time);
         //usleep(100000000);
         //sleep(1);
     }

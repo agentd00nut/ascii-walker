@@ -29,7 +29,7 @@ It runs untill you kill it with ctrl-c.
 
 
 # Build
-gcc -o whatever_you_want ascii-walker.c
+gcc -o whatever_you_want ascii-walker.c -lncurses
 
 # run
 ./whatever_you_want

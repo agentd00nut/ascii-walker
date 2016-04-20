@@ -25,18 +25,22 @@ int print_map(char **grid, int x, int y){
     //every pimp needs a top and bottom bitch
     int i;
     int j;
-    char* black     = "\e[30m";
-    char* white     = "\e[97m";
-    char* green     = "\e[32m";
-    char* magenta   = "\e[35m";
-    char* cyan      = "\e[96m";
-    char* red      = "\e[91m";
-    char *buf = (char*)malloc(sizeof(char)*(n_cols*n_rows*13));
-    char temp_char = ' ';
 
-    int iter = 0;
+    init_pair(1, COLOR_BLACK, COLOR_BLACK);
+    init_pair(2, COLOR_WHITE, COLOR_BLACK);
+    init_pair(3, COLOR_GREEN, COLOR_BLACK);
+    init_pair(4, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(5, COLOR_CYAN, COLOR_BLACK);
+    init_pair(6, COLOR_YELLOW, COLOR_BLACK);
+
+
+    char *buf = (char*)malloc(sizeof(char)*(n_cols*n_rows*13));
+    //char temp_char = '';
+    char current_char = ' ';
+    int  current_color = 1;
 
     char poop[2];
+
 
 
     for(i = 0; i < n_rows; ++i){
@@ -65,14 +69,27 @@ int print_map(char **grid, int x, int y){
             }*/
             poop[0] = grid[i][j];
             poop[1] = '\0';
+
+            current_char = grid[i][j];
+
+            if(current_char == '@'){ current_color = 2; }
+            if(current_char == '.'){ current_color = 3; }
+            if(current_char == ','){ current_color = 4; }
+            if(current_char == '*'){ current_color = 5; }
+            if(current_char == '#'){ current_color = 6; }
+
+            attron(COLOR_PAIR(current_color));
             mvprintw(i,j, poop);
+            attroff(COLOR_PAIR(current_color));
+
         }
 
 //        iter += sprintf(buf+iter, "\n");
     }
     
+    attron(COLOR_PAIR(2));
     mvprintw(y,x,"@");
-    
+    attroff(COLOR_PAIR(2));
     //redrawwin(stdscr);
     refresh();
 
@@ -88,10 +105,10 @@ int main(int argc, char **argv){
     int chances[8];
     char tile = ' ';
     char player = '@';
-    char path = '#';
-    char second_visit = '?';
-    char third_visit = '&';
-    char fourth_visit = '*';
+    char path = '.';
+    char second_visit = ',';
+    char third_visit = '*';
+    char fourth_visit = '#';
     srand(time(NULL));              //seed rng
     struct winsize w;               //get tty size
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -109,7 +126,7 @@ int main(int argc, char **argv){
     initscr();          /* Start curses mode          */
     noecho(); // Don't echo any keypresses
     curs_set(FALSE); // Don't display a cursor
-
+    start_color();
     // LAZY ARGS
     if(argc > 1)
     {
@@ -179,7 +196,7 @@ int main(int argc, char **argv){
         if( grid[y][x] == path ){ grid[y][x] = second_visit; } 
         else if(   grid[y][x] == second_visit){ grid[y][x] = third_visit; }
         else if(   grid[y][x] == third_visit){  grid[y][x] = fourth_visit; }
-        else if(   grid[y][x] == fourth_visit){ grid[y][x] = ' '; }
+        else if(   grid[y][x] == fourth_visit){ grid[y][x] = fourth_visit; }
         else{ grid[y][x] = path; }
 
         

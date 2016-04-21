@@ -17,11 +17,13 @@ static int n_cols;
 static int n_rows;
 static int last_color;
 
-static int decay_time = 15000;
+static int decay_time =  30000;//15000; good for non cascading decay
+static int decay_i = 0;
 
 static char char_map[8];
 static int color_map[8];
 static int max_characters;
+static int should_decay = 0;
 
 
 void sig_handler(int signo){
@@ -92,31 +94,128 @@ int sum_surrounding_tiles(int **grid, int y, int x)
 
     for( i = -1; i<2; ++i){
 
-        off_x = x+i;
-        if(off_x >= n_cols) { off_x = 0; } else if(off_x < 0)  { off_x = n_cols-1; }
+        off_y = y+i;
+        if(off_y >= n_rows) { off_y = 0; } else if(off_y < 0)  { off_y = n_rows-1; }
 
         for(j = -1; j<2; ++j){
 
-            off_y = y+i;
-            if(off_y >= n_rows ){ off_y = 0; } else if(off_y < 0)  { off_y = n_rows-1; }
+            off_x = x+i;
+            if(off_x >= n_cols ){ off_x = 0; } else if(off_x < 0)  { off_x = n_cols-1; }
 
             sum += grid[off_y][off_x];
         }
     }
 
-    return sum-grid[y][x];
+    return sum - grid[y][x]; // Don't add myself into the sum.
+}
+
+int * random_direction(int x, int y)
+{
+    static int directions[2];
+    int direction;
+    int horizontal;
+    int vertical;
+    int total = 96;
+
+     direction = rand()%total;
+        
+    if(direction < 12){
+        //cout<<"going down\n";
+        horizontal = x;
+        vertical = y + 1;
+    }else if(direction < 24){
+        //cout<<"going right\n";
+        horizontal = x + 1;
+        vertical = y;
+    }else if(direction < 36){
+        //cout<<"going up\n";
+        horizontal = x;
+        vertical = y - 1;
+    }else if(direction < 48){
+        //cout<<"going left\n";
+        horizontal = x - 1;
+        vertical = y;
+    }else if(direction < 60){
+        //cout<<"going up right\n";
+        horizontal = x + 1;
+        vertical = y - 1;
+    }else if(direction < 72){
+        //cout<<"going down left\n";
+        horizontal = x - 1;
+        vertical = y + 1;
+    }else if(direction < 84){
+        //cout<<"going up left\n";
+        horizontal = x - 1;
+        vertical = y - 1;
+    }else if(direction < 96){
+        //cout<<"going down right\n";
+        horizontal = x + 1;
+        vertical = y + 1;
+    }
+
+
+    //wrap around
+    if(horizontal >= n_cols){ horizontal = 0; }
+    else if(horizontal < 0){ horizontal = n_cols-1; }
+    if(vertical >= n_rows ){ vertical = 0; }
+    else if(vertical < 0){ vertical = n_rows-1; }
+
+    directions[0] = horizontal;
+    directions[1] = vertical;
+
+    return directions;
 }
 
 
-int update_maps(int **grid, int **decay)
+int faster_decay(int **grid, int **decay, int *decay_x, int *decay_y)
+{
+    int i;
+    int x;
+    int y;
+
+    int current_char    = 0;
+
+    for(i = 0; i < decay_i; ++i){
+        x = decay_x[i];
+        y = decay_y[i];
+
+        decay[y][x]--;
+
+        if(decay[y][x] <= 0)
+        {
+            current_char = grid[y][x];
+             
+            /*if(current_char*8 == sum_surrounding_tiles(grid, i, j)){
+                decay[i][j] = 1;
+                continue;
+            }*/
+
+            decay[y][x] = randomize_decay_time(decay_time);
+
+
+            if(current_char > 1){
+                current_char -= (random()%1)+1;
+            }
+            if(current_char <= 0){
+                current_char = 1;
+            }
+
+
+            grid[y][x] = current_char;
+            move(y,x);
+            addch( char_map[current_char]  | COLOR_PAIR(current_char) );
+        }
+    }
+    return 1;
+}
+
+int grid_decay(int **grid, int **decay)
 {
     int i;
     int j;
 
     int current_char = 0;
-    int print_char = 0;
-    int decay_amount = 0;
-    int tile_sums = 0;
+
 
      for(i = 0; i < n_rows; ++i){
         for(j = 0; j < n_cols; ++j){
@@ -130,10 +229,10 @@ int update_maps(int **grid, int **decay)
             if(decay[i][j] <= 0)
             {
                  
-                if(current_char*8 == sum_surrounding_tiles(grid, i, j)){
-                    decay[i][j] = 0;
+                /*if(current_char*8 == sum_surrounding_tiles(grid, i, j)){
+                    decay[i][j] = 1;
                     continue;
-                }
+                }*/
 
                 decay[i][j] = randomize_decay_time(decay_time);
 
@@ -156,9 +255,11 @@ int update_maps(int **grid, int **decay)
     return 1;
 }
 
+static int players = 12;
 
 
 int main(int argc, char **argv){
+  
     int i;  //the all around iterating bitch
     int j;  //the bottom bitch
     int k;
@@ -168,19 +269,18 @@ int main(int argc, char **argv){
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
     n_rows = w.ws_row-2;
     n_cols = w.ws_col;
-    int x = rand()%n_cols;    //initial point
-    int y = rand()%n_rows;
-    int horizontal;
-    int vertical;
-    int direction;
-    int total;
+    //int x = rand()%n_cols;    //initial point
+    //int y = rand()%n_rows;
+    int x;
+    int y;
     long long int sleep_time = 40000;
     long long int loop_time = get_ms_stamp();
-   
     int second = 0;
     int start_time = 0;
-
     int fps = 0;
+
+    int horizontal;
+    int vertical;
 
     // NCURSES INIT
 
@@ -197,8 +297,12 @@ int main(int argc, char **argv){
     if(argc > 1)
     {
         sleep_time = atoi(argv[1]);
+        should_decay = atoi(argv[2]);
+        players = atoi(argv[3]);
     }
 
+    int players_x[players];
+    int players_y[players];
 
     // BUILD GRID
     int **grid = (int**)malloc(sizeof(int*)*n_rows);
@@ -210,81 +314,78 @@ int main(int argc, char **argv){
 
         for(j = 0; j < n_cols; ++j){
             grid[i][j]  = 1;
-            decay[i][j] = randomize_decay_time(decay_time);
+            //decay[i][j] = randomize_decay_time(decay_time);
         }
     }
     if (signal(SIGINT, sig_handler) == SIG_ERR){
         //pass
     }
     
-
+    int tiles =0;
+    int steps =0;
     start_time = time(NULL);
-    while(true){
 
-        total = 96;
-        direction = rand()%total;
-        
-        if(direction < 12){
-            //cout<<"going down\n";
-            horizontal = x;
-            vertical = y + 1;
-        }else if(direction < 24){
-            //cout<<"going right\n";
-            horizontal = x + 1;
-            vertical = y;
-        }else if(direction < 36){
-            //cout<<"going up\n";
-            horizontal = x;
-            vertical = y - 1;
-        }else if(direction < 48){
-            //cout<<"going left\n";
-            horizontal = x - 1;
-            vertical = y;
-        }else if(direction < 60){
-            //cout<<"going up right\n";
-            horizontal = x + 1;
-            vertical = y - 1;
-        }else if(direction < 72){
-            //cout<<"going down left\n";
-            horizontal = x - 1;
-            vertical = y + 1;
-        }else if(direction < 84){
-            //cout<<"going up left\n";
-            horizontal = x - 1;
-            vertical = y - 1;
-        }else if(direction < 96){
-            //cout<<"going down right\n";
-            horizontal = x + 1;
-            vertical = y + 1;
-        }
+    for(i=0; i<players; ++i)
+    {
+        players_x[i] = rand()%n_cols;
+        players_y[i] = rand()%n_rows;
+    }
 
-        //wrap around
-        if(horizontal >= n_cols){ horizontal = 0; }
-        else if(horizontal < 0){ horizontal = n_cols-1; }
-        if(vertical >= n_rows ){ vertical = 0; }
-        else if(vertical < 0){ vertical = n_rows-1; }
+    for(;;){
 
-        update_maps(grid, decay);
-
-        if( grid[y][x] < max_characters-1)
+        for(i=0; i<players; ++i)
         {
-            grid[y][x]++;
+            x = players_x[i];
+            y = players_y[i];
+
+            steps ++;
+           
+           if( grid[y][x] == 1)
+            {
+                tiles++;
+            }
+
+            if( grid[y][x] < max_characters-1)
+            {
+                grid[y][x]++;
+                decay[y][x]         = randomize_decay_time(decay_time);
+                //decay_x[decay_i]    = x;
+                //decay_y[decay_i]    = y;
+                //decay_i++;
+            }else if(grid[y][x] == max_characters-1)
+            {
+                grid[y][x] = 1;
+                decay[y][x]         = randomize_decay_time(decay_time);
+            }
+
+
+  
+            
+            move(y,x);
+            addch( char_map[ grid[y][x] ]  | COLOR_PAIR( grid[y][x] ) );
+
+            int *directions = random_direction(x,y);
+            horizontal      = directions[0];
+            vertical        = directions[1];
+            players_y[i]    = vertical;
+            players_x[i]    = horizontal;
+
+            move(vertical,horizontal);
+            addch('@' | COLOR_PAIR(8) );
+
         }
-        
-        move(y,x);
-        addch( char_map[ grid[y][x] ]  | COLOR_PAIR( grid[y][x] ) );
 
-        x = horizontal;
-        y = vertical;
-
-        move(vertical,horizontal);
-        addch('@' | COLOR_PAIR(8) );
-
+        if(should_decay) { 
+            grid_decay(grid, decay); 
+            //faster_decay(grid, decay, decay_x, decay_y);
+        }
 
         if(time(NULL) - start_time >= 1)
         {
             attron(COLOR_PAIR(8));
             mvprintw(n_rows, 10, "%d", fps);
+            mvprintw(n_rows, 30, "%d", tiles);
+            mvprintw(n_rows, 50, "%d", steps);
             attroff(COLOR_PAIR(1));
             fps=0;
             start_time = time(NULL);
@@ -292,7 +393,6 @@ int main(int argc, char **argv){
         
 
         refresh();
-
         fps ++;
 
         usleep( sleep_time );

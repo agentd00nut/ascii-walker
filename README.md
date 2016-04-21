@@ -32,6 +32,11 @@ It runs untill you kill it with ctrl-c.
 gcc -o whatever_you_want ascii-walker.c -lncurses
 
 # run
-./whatever_you_want
+
+./whatever_you_want <sleep_time> <decay, 0 or 1> <number of drunkards>
+
+sleep time is default 40000
+if decay is 1 tiles will slowly decay to a lower tile
+number of drunkards, obviously 1 is default
 
 

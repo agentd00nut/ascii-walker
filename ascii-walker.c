@@ -6,23 +6,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <stdio.h>      /* printf */
+#include <time.h>       /* time_t, time (for timestamp in second) */
+#include <sys/timeb.h>  /* ftime, timeb (for timestamp in millisecond) */
+#include <sys/time.h>   /* gettimeofday, timeval (for timestamp in microsecond) */
+
 #include <ncurses.h>
 
 static int n_cols;
 static int n_rows;
 static int last_color;
 
-static int decay_time = 30000;
-
-static char player = '@';
-static char tile = ' ';
-static char path = '.';
-static char second_visit = ',';
-static char third_visit = '*';
-static char fourth_visit = '#';
-static char fifth_visit = '^';
-static char sixth_visit = '+';
-
+static int decay_time = 15000;
 
 static char char_map[8];
 static int color_map[8];
@@ -48,7 +43,7 @@ int randomize_decay_time(int decay_time)
 
 void init_char_map()
 {
-    char_map[0] = player;
+    char_map[0] = '@';
     char_map[1] = ' ';
     char_map[2] = '.';
     char_map[3] = ',';
@@ -71,61 +66,95 @@ void init_char_map()
 
 }
 
-int print_map(int **grid, int **decay, int x, int y){
-    //every pimp needs a top and bottom bitch
+long long int get_ms_stamp()
+{
+struct timeval timer_usec; 
+  long long int timestamp_usec; /* timestamp in microsecond */
+  if (!gettimeofday(&timer_usec, NULL)) {
+    timestamp_usec = ((long long int) timer_usec.tv_sec) * 1000000ll + 
+                        (long long int) timer_usec.tv_usec;
+  }
+  else {
+    timestamp_usec = -1;
+  }
+  //printf("%lld microseconds since epoch\n", timestamp_usec);
+  return timestamp_usec;
+}
+
+int sum_surrounding_tiles(int **grid, int y, int x)
+{
+    int sum = 0;
+    int i;
+    int j;
+    int off_x;
+    int off_y;
+     //wrap around
+
+    for( i = -1; i<2; ++i){
+
+        off_x = x+i;
+        if(off_x >= n_cols) { off_x = 0; } else if(off_x < 0)  { off_x = n_cols-1; }
+
+        for(j = -1; j<2; ++j){
+
+            off_y = y+i;
+            if(off_y >= n_rows ){ off_y = 0; } else if(off_y < 0)  { off_y = n_rows-1; }
+
+            sum += grid[off_y][off_x];
+        }
+    }
+
+    return sum-grid[y][x];
+}
+
+
+int update_maps(int **grid, int **decay)
+{
     int i;
     int j;
 
     int current_char = 0;
     int print_char = 0;
     int decay_amount = 0;
+    int tile_sums = 0;
 
-
-    int poop = 0;
-
-    for(i = 0; i < n_rows; ++i){
+     for(i = 0; i < n_rows; ++i){
         for(j = 0; j < n_cols; ++j){
 
             current_char = grid[i][j];
 
-            if(current_char == 1)
-            {
-                continue;
-            }
+            if(current_char == 1){ continue; }
 
-            decay[i][j]--;
+            decay[i][j]--;  
 
-            if(decay[i][j] == 0)
+            if(decay[i][j] <= 0)
             {
-                decay[i][j] = randomize_decay_time(decay_time);
-                
-                if(current_char > 1)
-                {
-                    current_char -= (random()%2);
+                 
+                if(current_char*8 == sum_surrounding_tiles(grid, i, j)){
+                    decay[i][j] = 0;
+                    continue;
                 }
-                if(current_char <= 0)
-                {
+
+                decay[i][j] = randomize_decay_time(decay_time);
+
+
+                if(current_char > 1){
+                    current_char -= (random()%1)+1;
+                }
+                if(current_char <= 0){
                     current_char = 1;
                 }
 
+
                 grid[i][j] = current_char;
+                move(i,j);
+                addch( char_map[current_char]  | COLOR_PAIR(current_char) );
             }
-
-            move(i,j);
-            addch( char_map[current_char]  | COLOR_PAIR(current_char) );
-
         }
     }
-    
-    move(y,x);
-    addch('@' | COLOR_PAIR(8) );
-    refresh();
 
     return 1;
 }
-
-
-
 
 
 
@@ -145,8 +174,13 @@ int main(int argc, char **argv){
     int vertical;
     int direction;
     int total;
-    int sleep_time = 40000;
+    long long int sleep_time = 40000;
+    long long int loop_time = get_ms_stamp();
+   
+    int second = 0;
+    int start_time = 0;
 
+    int fps = 0;
 
     // NCURSES INIT
 
@@ -184,7 +218,9 @@ int main(int argc, char **argv){
     }
     
 
-    while(print_map(grid, decay, x, y)){
+    start_time = time(NULL);
+    while(true){
+
         total = 96;
         direction = rand()%total;
         
@@ -221,21 +257,45 @@ int main(int argc, char **argv){
             horizontal = x + 1;
             vertical = y + 1;
         }
+
         //wrap around
         if(horizontal >= n_cols){ horizontal = 0; }
         else if(horizontal < 0){ horizontal = n_cols-1; }
         if(vertical >= n_rows ){ vertical = 0; }
         else if(vertical < 0){ vertical = n_rows-1; }
 
+        update_maps(grid, decay);
+
         if( grid[y][x] < max_characters-1)
         {
             grid[y][x]++;
         }
         
+        move(y,x);
+        addch( char_map[ grid[y][x] ]  | COLOR_PAIR( grid[y][x] ) );
+
         x = horizontal;
         y = vertical;
 
-        usleep(sleep_time);
+        move(vertical,horizontal);
+        addch('@' | COLOR_PAIR(8) );
+
+
+        if(time(NULL) - start_time >= 1)
+        {
+            attron(COLOR_PAIR(8));
+            mvprintw(n_rows, 10, "%d", fps);
+            attroff(COLOR_PAIR(1));
+            fps=0;
+            start_time = time(NULL);
+        }
+        
+
+        refresh();
+
+        fps ++;
+
+        usleep( sleep_time );
 
     }
     return 0;

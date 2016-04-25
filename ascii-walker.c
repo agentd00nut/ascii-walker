@@ -17,7 +17,7 @@ static int n_cols;
 static int n_rows;
 static int last_color;
 
-static int decay_time =  30000;//15000; good for non cascading decay
+static int decay_time =  15000;//15000; good for non cascading decay
 static int decay_i = 0;
 
 static char char_map[8];
@@ -47,20 +47,28 @@ void init_char_map()
 {
     char_map[0] = '@';
     char_map[1] = ' ';
-    char_map[2] = '.';
-    char_map[3] = ',';
-    char_map[4] = '*';
-    char_map[5] = '#';
-    char_map[6] = '^';
-    char_map[7] = '%';
+    char_map[2] = '8';//'.';
+    char_map[3] = '8';//',';
+    char_map[4] = '8';//'*';
+    char_map[5] = '8';//'#';
+    char_map[6] = '8';//'^';
+    char_map[7] = '8';//'%';
 
-    init_pair(1, COLOR_BLACK, COLOR_BLACK);
+    /*init_pair(1, COLOR_BLACK, COLOR_BLACK);
     init_pair(2, COLOR_BLUE, COLOR_BLACK);
     init_pair(3, COLOR_CYAN, COLOR_BLACK);
     init_pair(4, COLOR_YELLOW, COLOR_BLACK);
     init_pair(5, COLOR_GREEN, COLOR_BLACK);
     init_pair(6, COLOR_RED, COLOR_BLACK);
-    init_pair(7, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(7, COLOR_MAGENTA, COLOR_BLACK);*/
+
+    init_pair(1, COLOR_BLACK, COLOR_BLACK);
+    init_pair(2, COLOR_BLUE, COLOR_BLUE);
+    init_pair(3, COLOR_CYAN, COLOR_CYAN);
+    init_pair(4, COLOR_YELLOW, COLOR_YELLOW);
+    init_pair(5, COLOR_GREEN, COLOR_GREEN);
+    init_pair(6, COLOR_RED, COLOR_RED);
+    init_pair(7, COLOR_MAGENTA, COLOR_MAGENTA);
 
     init_pair(8, COLOR_WHITE, COLOR_BLACK);
 
@@ -109,6 +117,22 @@ int sum_surrounding_tiles(int **grid, int y, int x)
     return sum - grid[y][x]; // Don't add myself into the sum.
 }
 
+
+int wrap_horizontal(int horizontal)
+{
+    if(horizontal >= n_cols){ horizontal = horizontal-n_cols; }
+    else if(horizontal < 0){ horizontal = n_cols+horizontal; }
+    return horizontal;
+}
+
+int wrap_vertical(int vertical)
+{
+    if(vertical >= n_rows ){ vertical = vertical-n_rows; }
+    else if(vertical < 0){ vertical = n_rows+vertical; }
+
+    return vertical;
+}
+
 int * random_direction(int x, int y)
 {
     static int directions[2];
@@ -119,7 +143,7 @@ int * random_direction(int x, int y)
 
      direction = rand()%total;
         
-    if(direction < 12){
+    if(direction < 6){
         //cout<<"going down\n";
         horizontal = x;
         vertical = y + 1;
@@ -127,7 +151,7 @@ int * random_direction(int x, int y)
         //cout<<"going right\n";
         horizontal = x + 1;
         vertical = y;
-    }else if(direction < 36){
+    }else if(direction < 30){
         //cout<<"going up\n";
         horizontal = x;
         vertical = y - 1;
@@ -155,16 +179,12 @@ int * random_direction(int x, int y)
 
 
     //wrap around
-    if(horizontal >= n_cols){ horizontal = 0; }
-    else if(horizontal < 0){ horizontal = n_cols-1; }
-    if(vertical >= n_rows ){ vertical = 0; }
-    else if(vertical < 0){ vertical = n_rows-1; }
-
-    directions[0] = horizontal;
-    directions[1] = vertical;
+    directions[0]  = wrap_horizontal(horizontal);
+    directions[1]  = wrap_vertical(vertical);
 
     return directions;
 }
+
 
 
 int faster_decay(int **grid, int **decay, int *decay_x, int *decay_y)
@@ -294,11 +314,16 @@ int main(int argc, char **argv){
 
     // LAZY ARGS
 
+    int show_players = 1;
+    int should_cycle = 1;
+
     if(argc > 1)
     {
-        sleep_time = atoi(argv[1]);
-        should_decay = atoi(argv[2]);
-        players = atoi(argv[3]);
+        show_players    = atoi(argv[1]);
+        should_decay    = atoi(argv[2]);
+        should_cycle    = atoi(argv[3]);
+        sleep_time      = atoi(argv[4]);
+        players         = atoi(argv[5]);
     }
 
     int players_x[players];
@@ -325,10 +350,24 @@ int main(int argc, char **argv){
     int steps =0;
     start_time = time(NULL);
 
-    for(i=0; i<players; ++i)
+    players_x[0] = rand()%n_cols;
+    players_y[0] = rand()%n_rows;
+    int space_x = 1;
+    int space_y = 1;
+    if(players < n_cols && players < n_rows){
+        int space_x = n_cols / players ;
+        int space_y = n_rows / players;
+    }
+    
+
+    int up_or_down = 0;
+    for(i=1; i<players; ++i)
     {
-        players_x[i] = rand()%n_cols;
-        players_y[i] = rand()%n_rows;
+        up_or_down = random()%1;
+        players_x[i] = wrap_horizontal( (rand()%space_x)+players_x[0]+space_x*(i+1) );
+        if(up_or_down == 0)
+            {players_y[i] = wrap_vertical(   (rand()%space_y)+players_y[0]-space_y*(i+1) ); }
+        else{ players_y[i] = wrap_vertical(   (rand()%space_y)+players_y[0]-space_y*(i+1) ); }
     }
 
     for(;;){
@@ -352,7 +391,7 @@ int main(int argc, char **argv){
                 //decay_x[decay_i]    = x;
                 //decay_y[decay_i]    = y;
                 //decay_i++;
-            }else if(grid[y][x] == max_characters-1)
+            }else if(grid[y][x] == max_characters-1 && should_cycle)
             {
                 grid[y][x] = 1;
                 decay[y][x]         = randomize_decay_time(decay_time);
@@ -370,14 +409,17 @@ int main(int argc, char **argv){
             players_y[i]    = vertical;
             players_x[i]    = horizontal;
 
-            move(vertical,horizontal);
-            addch('@' | COLOR_PAIR(8) );
+            if(show_players)
+            {
+                move(vertical,horizontal);
+                addch('@' | COLOR_PAIR(8) );
+            }
 
         }
 
-        if(should_decay) { 
+        if(should_decay) 
+        { 
             grid_decay(grid, decay); 
-            //faster_decay(grid, decay, decay_x, decay_y);
         }
 
         if(time(NULL) - start_time >= 1)

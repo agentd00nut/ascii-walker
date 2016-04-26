@@ -22,6 +22,7 @@ static int decay_i = 0;
 
 static char char_map[8];
 static int color_map[8];
+static int color_counts[8];
 static int max_characters;
 static int should_decay = 0;
 
@@ -229,6 +230,24 @@ int faster_decay(int **grid, int **decay, int *decay_x, int *decay_y)
     return 1;
 }
 
+
+
+void draw_statistics(int fps, int tiles, int steps)
+{
+    int i;  
+    attron(COLOR_PAIR(8));
+    mvprintw(n_rows, 5, "FPS: %d", fps);
+    mvprintw(n_rows, 18, "Tiles: %d", tiles);
+    mvprintw(n_rows, 32, "Steps: %d", steps);
+
+    for(i=2; i<8; ++i) // 8 because thats the # of colors we have
+    {
+        move(n_rows+1,38+i*6);
+        mvprintw(n_rows+1, 38+i*6, "%d", color_counts[i]);
+    }
+    attroff(COLOR_PAIR(1));
+}
+
 int grid_decay(int **grid, int **decay)
 {
     int i;
@@ -264,8 +283,9 @@ int grid_decay(int **grid, int **decay)
                     current_char = 1;
                 }
 
-
+                color_counts[ grid[i][j] ] --;
                 grid[i][j] = current_char;
+                color_counts[ grid[i][j] ] ++;
                 move(i,j);
                 addch( char_map[current_char]  | COLOR_PAIR(current_char) );
             }
@@ -308,7 +328,6 @@ int main(int argc, char **argv){
     noecho();           // Don't echo any keypresses
     curs_set(FALSE);    // Don't display a cursor
     start_color();
-
  
     init_char_map();        // This probably has to be after start_color(); ? 
 
@@ -352,22 +371,20 @@ int main(int argc, char **argv){
 
     players_x[0] = rand()%n_cols;
     players_y[0] = rand()%n_rows;
-    int space_x = 1;
-    int space_y = 1;
-    if(players < n_cols && players < n_rows){
-        int space_x = n_cols / players ;
-        int space_y = n_rows / players;
-    }
     
 
     int up_or_down = 0;
     for(i=1; i<players; ++i)
     {
-        up_or_down = random()%1;
-        players_x[i] = wrap_horizontal( (rand()%space_x)+players_x[0]+space_x*(i+1) );
-        if(up_or_down == 0)
-            {players_y[i] = wrap_vertical(   (rand()%space_y)+players_y[0]-space_y*(i+1) ); }
-        else{ players_y[i] = wrap_vertical(   (rand()%space_y)+players_y[0]-space_y*(i+1) ); }
+        players_x[i] = wrap_horizontal( (rand()%n_cols)+players_x[i-1] );
+        players_y[i] = wrap_vertical(   (rand()%n_rows)+players_y[i-1] );
+    }
+
+
+    for(i=2; i<8; ++i) // 8 because thats the # of colors we have
+    {
+        move(n_rows+1,37+i*6);
+        addch( char_map[ i ]  | COLOR_PAIR( i ) );
     }
 
     for(;;){
@@ -386,13 +403,17 @@ int main(int argc, char **argv){
 
             if( grid[y][x] < max_characters-1)
             {
+                color_counts[grid[y][x]] --;
                 grid[y][x]++;
+                color_counts[grid[y][x]] ++;
+
                 decay[y][x]         = randomize_decay_time(decay_time);
                 //decay_x[decay_i]    = x;
                 //decay_y[decay_i]    = y;
                 //decay_i++;
             }else if(grid[y][x] == max_characters-1 && should_cycle)
             {
+                color_counts[grid[y][x]] --;
                 grid[y][x] = 1;
                 decay[y][x]         = randomize_decay_time(decay_time);
             }
@@ -424,11 +445,8 @@ int main(int argc, char **argv){
 
         if(time(NULL) - start_time >= 1)
         {
-            attron(COLOR_PAIR(8));
-            mvprintw(n_rows, 10, "%d", fps);
-            mvprintw(n_rows, 30, "%d", tiles);
-            mvprintw(n_rows, 50, "%d", steps);
-            attroff(COLOR_PAIR(1));
+            draw_statistics(fps, tiles, steps);
+
             fps=0;
             start_time = time(NULL);
         }

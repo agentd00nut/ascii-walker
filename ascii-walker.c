@@ -48,12 +48,12 @@ void init_char_map()
 {
     char_map[0] = '@';
     char_map[1] = ' ';
-    char_map[2] = '8';//'.';
-    char_map[3] = '8';//',';
-    char_map[4] = '8';//'*';
-    char_map[5] = '8';//'#';
-    char_map[6] = '8';//'^';
-    char_map[7] = '8';//'%';
+    char_map[2] = ' ';//'.';
+    char_map[3] = ' ';//',';
+    char_map[4] = ' ';//'*';
+    char_map[5] = ' ';//'#';
+    char_map[6] = ' ';//'^';
+    char_map[7] = ' ';//'%';
 
     /*init_pair(1, COLOR_BLACK, COLOR_BLACK);
     init_pair(2, COLOR_BLUE, COLOR_BLACK);
@@ -143,7 +143,7 @@ int * random_direction(int x, int y)
     int total = 96;
 
      direction = rand()%total;
-        
+                    
     if(direction < 6){
         //cout<<"going down\n";
         horizontal = x;

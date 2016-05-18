@@ -40,11 +40,11 @@ How to Run
 
 These are listed in order... unfortunately because I'm lazy if you provide one argument you must provide them all.
 
-show_players 0,1 | show the "@" signs or not.
-should_decay 0,1 | If the path should decay over time.
-should_cycle 0,1  | If when stepping on the last symbol if it should wrap around to a blank space.
-sleep_time 0-big# | The number of cycles to sleep between steps in the program... defaults to 40000
-players 1-100+ | Number of walkers to have on the map
+- show_players 0,1 | show the "@" signs or not.
+- should_decay 0,1 | If the path should decay over time.
+- should_cycle 0,1  | If when stepping on the last symbol if it should wrap around to a blank space.
+- sleep_time 0-big# | The number of cycles to sleep between steps in the program... defaults to 40000
+- players 1-100+ | Number of walkers to have on the map
 
 
 Editing the visuals

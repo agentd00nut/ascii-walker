@@ -4,7 +4,7 @@ This is a C based drunken walk that wraps around the edges of the terminal scree
 It does not support screen resizing while running but between runs thats fine.
 
 It runs untill you kill it with ctrl-c.
-
+ 
 Features
 ----------
 
